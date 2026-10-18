@@ -45,7 +45,7 @@ export const loginUser = createAsyncThunk('user/login', async (data: TLoginData)
 
 export const logoutUser = createAsyncThunk('user/logout', async () => {
   await logoutApi();
-  localStorage.removeItem('refreshToken');
+  localStorage.clear();
   deleteCookie('accessToken');
 });
 

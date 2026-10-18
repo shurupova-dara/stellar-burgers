@@ -1,21 +1,18 @@
 import { getOrdersApi } from '@api';
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 
-import type { PayloadAction } from '@reduxjs/toolkit';
 import type { TOrder } from '@utils-types';
 
 type TOrdersState = {
   orders: TOrder[];
   isLoading: boolean;
   error: string | null;
-  wsConnected: boolean;
 };
 
 const initialState: TOrdersState = {
   orders: [],
   isLoading: false,
   error: null,
-  wsConnected: false,
 };
 
 export const fetchUserOrders = createAsyncThunk(
@@ -26,28 +23,7 @@ export const fetchUserOrders = createAsyncThunk(
 const ordersSlice = createSlice({
   name: 'orders',
   initialState,
-  reducers: {
-    wsConnect: (_state, _action: PayloadAction<string>) => {
-      // Middleware сам устанавливает соединение
-    },
-    wsDisconnect: (state) => {
-      state.wsConnected = false;
-    },
-    wsOpen: (state) => {
-      state.wsConnected = true;
-      state.error = null;
-    },
-    wsClose: (state) => {
-      state.wsConnected = false;
-    },
-    wsError: (state, action: PayloadAction<string>) => {
-      state.error = action.payload;
-      state.wsConnected = false;
-    },
-    wsMessage: (state, action: PayloadAction<{ orders: TOrder[] }>) => {
-      state.orders = Array.isArray(action.payload?.orders) ? action.payload.orders : [];
-    },
-  },
+  reducers: {},
   extraReducers: (builder) => {
     builder
       .addCase(fetchUserOrders.pending, (state) => {
@@ -67,18 +43,8 @@ const ordersSlice = createSlice({
 
 export const ordersReducer = ordersSlice.reducer;
 
-export const {
-  wsConnect: userWsConnect,
-  wsDisconnect: userWsDisconnect,
-  wsOpen: userWsOpen,
-  wsClose: userWsClose,
-  wsError: userWsError,
-  wsMessage: userWsMessage,
-} = ordersSlice.actions;
-
 export const selectUserOrders = (state: { orders: TOrdersState }): TOrder[] =>
   state.orders.orders;
+
 export const selectOrdersLoading = (state: { orders: TOrdersState }): boolean =>
   state.orders.isLoading;
-export const selectOrdersWsConnected = (state: { orders: TOrdersState }): boolean =>
-  state.orders.wsConnected;
