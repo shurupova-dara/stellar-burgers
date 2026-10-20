@@ -1,82 +1,14 @@
 import { expect, test } from '@playwright/test';
 
-const testIngredients = [
-  {
-    _id: 'bun-test-1',
-    name: 'Тестовая булка',
-    type: 'bun',
-    proteins: 10,
-    fat: 5,
-    carbohydrates: 20,
-    calories: 200,
-    price: 100,
-    image: 'https://example.com/bun.png',
-    image_large: 'https://example.com/bun-large.png',
-    image_mobile: 'https://example.com/bun-mobile.png',
-  },
-  {
-    _id: 'main-test-1',
-    name: 'Тестовая начинка',
-    type: 'main',
-    proteins: 15,
-    fat: 8,
-    carbohydrates: 12,
-    calories: 180,
-    price: 200,
-    image: 'https://example.com/main.png',
-    image_large: 'https://example.com/main-large.png',
-    image_mobile: 'https://example.com/main-mobile.png',
-  },
-];
-
 test.describe('Конструктор Stellar Burgers', () => {
   test.beforeEach(async ({ page }) => {
-    await page.routeFromHAR('./tests/hars/ingredients.har', {
-      url: '**/api/ingredients',
+    await page.routeFromHAR('./tests/hars/api.har', {
+      url: '**/api/**',
     });
 
     await page.addInitScript(() => {
       localStorage.setItem('refreshToken', 'test-refresh-token');
       document.cookie = 'accessToken=test-access-token; path=/';
-    });
-
-    await page.route('**/api/auth/user', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          success: true,
-          user: {
-            email: 'test@example.com',
-            name: 'Тестовый пользователь',
-          },
-        }),
-      });
-    });
-
-    await page.route('**/api/orders', async (route) => {
-      if (route.request().method() !== 'POST') {
-        await route.continue();
-        return;
-      }
-
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          success: true,
-          name: 'Тестовый бургер',
-          order: {
-            _id: 'test-order-id',
-            ingredients: ['bun-test-1', 'main-test-1', 'bun-test-1'],
-            status: 'done',
-            name: 'Тестовый бургер',
-            createdAt: '2026-10-20T08:00:00.000Z',
-            updatedAt: '2026-10-20T08:00:00.000Z',
-            number: 12345,
-          },
-        }),
-      });
     });
 
     await page.goto('/');
@@ -97,7 +29,7 @@ test.describe('Конструктор Stellar Burgers', () => {
   test('добавляет начинку в конструктор', async ({ page }) => {
     const mainCard = page
       .locator('li')
-      .filter({ hasText: 'Тестовая начинка' })
+      .filter({ has: page.getByText('Тестовая начинка', { exact: true }) })
       .filter({ has: page.getByRole('button', { name: 'Добавить' }) });
 
     await mainCard.getByRole('button', { name: 'Добавить' }).click();
@@ -105,17 +37,67 @@ test.describe('Конструктор Stellar Burgers', () => {
     await expect(page.getByText('Тестовая начинка200')).toBeVisible();
   });
 
-  test('открывает модалку с деталями выбранного ингредиента', async ({ page }) => {
-    const ingredientCard = page
+  test('удаляет выбранную начинку, сохраняя остальные', async ({ page }) => {
+    const firstCard = page
       .locator('li')
-      .filter({ hasText: 'Тестовая булка' })
-      .locator('a');
+      .filter({ has: page.getByText('Тестовая начинка', { exact: true }) })
+      .filter({ has: page.getByRole('button', { name: 'Добавить' }) });
 
-    await ingredientCard.click();
+    const secondCard = page
+      .locator('li')
+      .filter({ hasText: 'Вторая тестовая начинка' })
+      .filter({ has: page.getByRole('button', { name: 'Добавить' }) });
+
+    await firstCard.getByRole('button', { name: 'Добавить' }).click();
+    await secondCard.getByRole('button', { name: 'Добавить' }).click();
+
+    const constructor = page.locator('section').filter({
+      has: page.getByRole('button', { name: 'Оформить заказ' }),
+    });
+
+    await expect(
+      constructor.getByText('Тестовая начинка', { exact: true })
+    ).toBeVisible();
+
+    await expect(
+      constructor.getByText('Вторая тестовая начинка', { exact: true })
+    ).toBeVisible();
+
+    const firstIngredient = constructor
+      .getByText('Тестовая начинка', { exact: true })
+      .locator('xpath=ancestor::li');
+
+    await firstIngredient.locator('.constructor-element__action svg').click();
+
+    await expect(
+      constructor.getByText('Тестовая начинка', { exact: true })
+    ).not.toBeVisible();
+
+    await expect(
+      constructor.getByText('Вторая тестовая начинка', { exact: true })
+    ).toBeVisible();
+  });
+
+  test('открывает модалку с деталями выбранного ингредиента', async ({ page }) => {
+    const mainCard = page
+      .locator('li')
+      .filter({
+        has: page.getByText('Вторая тестовая начинка', { exact: true }),
+      })
+      .filter({ has: page.getByRole('button', { name: 'Добавить' }) });
+
+    await mainCard.locator('a').click();
 
     const modal = page.locator('#modals');
+
     await expect(modal.getByText('Детали ингредиента')).toBeVisible();
-    await expect(modal.getByText('Тестовая булка')).toBeVisible();
+    await expect(
+      modal.getByText('Вторая тестовая начинка', { exact: true })
+    ).toBeVisible();
+    await expect(modal.getByText('20', { exact: true })).toBeVisible();
+    await expect(modal.getByText('10', { exact: true })).toBeVisible();
+    await expect(modal.getByText('15', { exact: true })).toBeVisible();
+    await expect(modal.getByText('220', { exact: true })).toBeVisible();
   });
 
   test('закрывает модалку крестиком', async ({ page }) => {
@@ -127,6 +109,7 @@ test.describe('Конструктор Stellar Burgers', () => {
     await ingredientCard.click();
 
     const modal = page.locator('#modals');
+
     await expect(modal.getByText('Детали ингредиента')).toBeVisible();
 
     await modal.getByRole('button', { name: 'Закрыть' }).click();
@@ -143,6 +126,7 @@ test.describe('Конструктор Stellar Burgers', () => {
     await ingredientCard.click();
 
     const modal = page.locator('#modals');
+
     await expect(modal.getByText('Детали ингредиента')).toBeVisible();
 
     await modal
@@ -163,7 +147,7 @@ test.describe('Конструктор Stellar Burgers', () => {
 
     const mainCard = page
       .locator('li')
-      .filter({ hasText: 'Тестовая начинка' })
+      .filter({ has: page.getByText('Тестовая начинка', { exact: true }) })
       .filter({ has: page.getByRole('button', { name: 'Добавить' }) });
 
     await bunCard.getByRole('button', { name: 'Добавить' }).click();
