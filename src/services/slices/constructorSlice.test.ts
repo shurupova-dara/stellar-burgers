@@ -65,19 +65,14 @@ describe('constructorSlice', () => {
     expect(state.ingredients[0].id).toBeDefined();
   });
 
-  it('удаляет начинку по id', () => {
-    const addedState = constructorReducer(
-      undefined,
-      addIngredient(filling)
-    );
-    const ingredientId = addedState.ingredients[0].id;
+  it('удаляет выбранный экземпляр начинки по id', () => {
+    const withFirst = constructorReducer(undefined, addIngredient(filling));
+    const withBoth = constructorReducer(withFirst, addIngredient(filling));
+    const [first, second] = withBoth.ingredients;
 
-    const state = constructorReducer(
-      addedState,
-      removeIngredient(ingredientId)
-    );
+    const state = constructorReducer(withBoth, removeIngredient(first.id));
 
-    expect(state.ingredients).toEqual([]);
+    expect(state.ingredients).toEqual([second]);
   });
 
   it('меняет порядок начинок', () => {
